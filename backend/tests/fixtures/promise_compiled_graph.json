@@ -1,0 +1,171 @@
+{
+  "loop": {
+    "id": "loop_promise_001",
+    "user_id": "user_001",
+    "title": "Obtain the final client presentation Sarah promised by Friday.",
+    "goal": "Obtain the final client presentation Sarah promised by Friday.",
+    "status": "ACTIVE",
+    "root_node_id": "node_promise_goal",
+    "source_event_ids": [
+      "event_promise_initial"
+    ],
+    "node_ids": [
+      "node_promise_delivery",
+      "node_promise_valid_file",
+      "node_promise_goal"
+    ],
+    "created_at": "2026-09-13T09:35:00-04:00",
+    "updated_at": "2026-09-13T09:35:00-04:00"
+  },
+  "nodes": [
+    {
+      "id": "node_promise_delivery",
+      "loop_id": "loop_promise_001",
+      "title": "Sarah delivers the promised presentation",
+      "description": "Sarah supplies a presentation attachment or accessible file.",
+      "status": "ACTIVE",
+      "owner": "Sarah",
+      "deadline": "2026-09-18T17:00:00-04:00",
+      "depends_on": [],
+      "evidence_requirement_ids": [
+        "req_promise_delivery"
+      ],
+      "action_ids": [
+        "action_promise_checkpoint"
+      ],
+      "recovery_strategy": "If overdue or requirements change, evaluate new evidence and propose a repair with approval for communication.",
+      "created_at": "2026-09-13T09:35:00-04:00",
+      "updated_at": "2026-09-13T09:35:00-04:00"
+    },
+    {
+      "id": "node_promise_valid_file",
+      "loop_id": "loop_promise_001",
+      "title": "Valid final client presentation is available",
+      "description": "The received client presentation is the final version, not a draft.",
+      "status": "BLOCKED",
+      "owner": "Sarah",
+      "deadline": null,
+      "depends_on": [
+        "node_promise_delivery"
+      ],
+      "evidence_requirement_ids": [
+        "req_promise_valid_file"
+      ],
+      "action_ids": [],
+      "recovery_strategy": "If overdue or requirements change, evaluate new evidence and propose a repair with approval for communication.",
+      "created_at": "2026-09-13T09:35:00-04:00",
+      "updated_at": "2026-09-13T09:35:00-04:00"
+    },
+    {
+      "id": "node_promise_goal",
+      "loop_id": "loop_promise_001",
+      "title": "User has the final client presentation",
+      "description": "Correct final client presentation is accessible to the user.",
+      "status": "BLOCKED",
+      "owner": "user",
+      "deadline": null,
+      "depends_on": [
+        "node_promise_valid_file"
+      ],
+      "evidence_requirement_ids": [
+        "req_promise_goal"
+      ],
+      "action_ids": [],
+      "recovery_strategy": "If overdue or requirements change, evaluate new evidence and propose a repair with approval for communication.",
+      "created_at": "2026-09-13T09:35:00-04:00",
+      "updated_at": "2026-09-13T09:35:00-04:00"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_promise_1",
+      "loop_id": "loop_promise_001",
+      "source_node_id": "node_promise_valid_file",
+      "target_node_id": "node_promise_delivery",
+      "relationship": "DEPENDS_ON",
+      "reason": "The preceding outcome supplies a required prerequisite.",
+      "created_at": "2026-09-13T09:35:00-04:00"
+    },
+    {
+      "id": "edge_promise_2",
+      "loop_id": "loop_promise_001",
+      "source_node_id": "node_promise_goal",
+      "target_node_id": "node_promise_valid_file",
+      "relationship": "DEPENDS_ON",
+      "reason": "The preceding outcome supplies a required prerequisite.",
+      "created_at": "2026-09-13T09:35:00-04:00"
+    }
+  ],
+  "evidence_requirements": [
+    {
+      "id": "req_promise_delivery",
+      "node_id": "node_promise_delivery",
+      "type": "DOCUMENT_RECEIVED",
+      "description": "Sarah supplies a presentation attachment or accessible file.",
+      "source_apps": [
+        "slack",
+        "google_drive"
+      ],
+      "required_fields": {
+        "document_type": "presentation"
+      },
+      "created_at": "2026-09-13T09:35:00-04:00"
+    },
+    {
+      "id": "req_promise_valid_file",
+      "node_id": "node_promise_valid_file",
+      "type": "DOCUMENT_VALID",
+      "description": "The received client presentation is the final version, not a draft.",
+      "source_apps": [
+        "slack",
+        "google_drive"
+      ],
+      "required_fields": {
+        "document_type": "presentation",
+        "version": "final"
+      },
+      "created_at": "2026-09-13T09:35:00-04:00"
+    },
+    {
+      "id": "req_promise_goal",
+      "node_id": "node_promise_goal",
+      "type": "DOCUMENT_VALID",
+      "description": "Correct final client presentation is accessible to the user.",
+      "source_apps": [
+        "slack",
+        "google_drive"
+      ],
+      "required_fields": {
+        "document_type": "presentation",
+        "version": "final",
+        "accessible": true
+      },
+      "created_at": "2026-09-13T09:35:00-04:00"
+    }
+  ],
+  "proposed_actions": [
+    {
+      "id": "action_promise_checkpoint",
+      "loop_id": "loop_promise_001",
+      "node_id": "node_promise_delivery",
+      "app": "google_calendar",
+      "action_type": "CREATE_CALENDAR_EVENT",
+      "parameters": {
+        "title": "Sarah delivers the promised presentation",
+        "start": "2026-09-18T17:00:00-04:00",
+        "end": "2026-09-18T17:15:00-04:00"
+      },
+      "risk_level": "LOW",
+      "requires_approval": false,
+      "status": "PROPOSED",
+      "idempotency_key": "loop_promise_001:initial_checkpoint:2026-09-18T17:00:00-04:00",
+      "verification_method": "READ_AFTER_WRITE",
+      "created_at": "2026-09-13T09:35:00-04:00",
+      "updated_at": "2026-09-13T09:35:00-04:00"
+    }
+  ],
+  "assumptions": [
+    "Friday refers to September 18, 2026 in America/New_York.",
+    "17:00 is the proposed end-of-workday deadline."
+  ]
+}

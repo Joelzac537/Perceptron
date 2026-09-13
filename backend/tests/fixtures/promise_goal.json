@@ -1,0 +1,20 @@
+{
+  "user_id": "user_001",
+  "user_goal": "Obtain the final client presentation Sarah promised by Friday.",
+  "source_event": {
+    "id": "event_promise_initial",
+    "source_app": "slack",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "promise_message_001",
+    "timestamp": "2026-09-13T09:35:00-04:00",
+    "actor": "Sarah",
+    "subject": "Obtain the final client presentation Sarah promised by Friday.",
+    "content": "I will send the final client presentation by Friday, September 18, 2026."
+  },
+  "available_apps": [
+    "gmail",
+    "slack",
+    "google_drive",
+    "google_calendar"
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "refund_paraphrase",
+    "fixture": "refund",
+    "goal": "Track my approved headphones return for order A1298 until the merchant confirms my USD 129 refund.",
+    "review": "Return, merchant receipt and correct refund evidence remain distinct. Relative refund deadline is unset before receipt."
+  },
+  {
+    "id": "promise_paraphrase",
+    "fixture": "promise",
+    "goal": "Make sure Sarah's final client slide deck actually reaches me by the Friday she promised.",
+    "review": "Requires the final accessible artifact, not merely a sent follow-up or a draft file."
+  },
+  {
+    "id": "renewal_paraphrase",
+    "fixture": "renewal",
+    "goal": "Keep my renters coverage current and get confirmation that my landlord received valid renewed proof before expiration.",
+    "review": "Renewal confirmation, valid document, submission and acknowledgement are separate prerequisites."
+  }
+]

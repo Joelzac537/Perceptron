@@ -1,0 +1,20 @@
+{
+  "user_id": "user_001",
+  "user_goal": "Renew renters insurance and ensure the landlord acknowledges valid proof before September 25.",
+  "source_event": {
+    "id": "event_renewal_initial",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "renewal_message_001",
+    "timestamp": "2026-09-13T09:35:00-04:00",
+    "actor": "landlord@example.test",
+    "subject": "Renew renters insurance and ensure the landlord acknowledges valid proof before September 25.",
+    "content": "Your renters insurance expires September 25, 2026. Please renew and send valid proof before expiration; I will acknowledge receipt."
+  },
+  "available_apps": [
+    "gmail",
+    "slack",
+    "google_drive",
+    "google_calendar"
+  ]
+}
