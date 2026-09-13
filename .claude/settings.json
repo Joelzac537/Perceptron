@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(py \"C:\\\\Users\\\\Jzac\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Jzac-Downloads-Hackathon\\\\eb03f4f0-fec0-4b16-9a6a-5daa854259b9\\\\scratchpad\\\\fix_env.py\")",
-      "PowerShell(py db.py)",
-      "PowerShell(Get-Content .env | ForEach-Object { \\($_ -split '=',2\\)[0] }; git check-ignore -v .env; git status --short)"
-    ]
-  }
-}
