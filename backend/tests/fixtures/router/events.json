@@ -1,0 +1,172 @@
+{
+  "_note_refund_pair": "refund_confirmed and refund_confirmed_no_thread carry identical content and differ only in metadata. The first exposes thread_id thread_gmail_444, which loop_refund_001 also lists, so a thread lookup alone resolves it. The second has empty metadata, removing that signal and forcing the router down the identifier path: order A1298 and the $129.00 amount recovered from the body text. Keys prefixed with an underscore are commentary, not fixtures; the loader skips them because Event sets extra=forbid and would reject a _note placed inside an event payload.",
+
+  "refund_confirmed": {
+    "id": "evt_refund_confirmed_001",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_9f21c7",
+    "timestamp": "2026-09-15T09:12:04-04:00",
+    "actor": "returns@merchant.com",
+    "subject": "Your refund has been processed",
+    "content": "Hi Alex,\n\nWe have processed a $129.00 refund for Order #A1298. The amount will appear on your original payment method within 3-5 business days.\n\nThanks,\nMerchant Returns Team",
+    "attachments": [],
+    "metadata": {
+      "thread_id": "thread_gmail_444",
+      "from": "returns@merchant.com",
+      "to": "alex@example.com",
+      "labels": ["INBOX"]
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "refund_confirmed_no_thread": {
+    "id": "evt_refund_confirmed_no_thread_002",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_9f21c8",
+    "timestamp": "2026-09-15T09:31:47-04:00",
+    "actor": "returns@merchant.com",
+    "subject": "Your refund has been processed",
+    "content": "Hi Alex,\n\nWe have processed a $129.00 refund for Order #A1298. The amount will appear on your original payment method within 3-5 business days.\n\nThanks,\nMerchant Returns Team",
+    "attachments": [],
+    "metadata": {},
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "_note_mike_pair": "mike_has_final and mike_has_final_no_thread carry identical content and differ only in metadata, mirroring the refund pair above. The first exposes thread_ts 1690000123.111, which loop_presentation_001 also lists, so a thread lookup alone resolves it. The second keeps only channel_id, which matches nothing, and the message contains no order id, policy number, invoice number or amount for extract_identifiers to recover. The one deterministic signal left is the actor Sarah matching the owner of node_presentation_collect, which is weak on its own: an owner name is not unique to a loop and must score too low to short-circuit. This is the fixture that forces the semantic path.",
+
+  "mike_has_final": {
+    "id": "evt_mike_has_final_003",
+    "source_app": "slack",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "1690000456.222",
+    "timestamp": "2026-09-15T11:48:19-04:00",
+    "actor": "Sarah",
+    "subject": null,
+    "content": "Mike actually has the final version. Please get it from him.",
+    "attachments": [],
+    "metadata": {
+      "thread_ts": "1690000123.111",
+      "channel": "C07PROJECTS",
+      "channel_name": "projects",
+      "user_display_name": "Sarah Chen"
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "mike_has_final_no_thread": {
+    "id": "evt_mike_has_final_no_thread_009",
+    "source_app": "slack",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "1690000789.333",
+    "timestamp": "2026-09-15T11:48:19-04:00",
+    "actor": "Sarah",
+    "subject": null,
+    "content": "Mike actually has the final version. Please get it from him.",
+    "attachments": [],
+    "metadata": {
+      "channel_id": "C123"
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "newsletter": {
+    "id": "evt_newsletter_004",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_bb4410",
+    "timestamp": "2026-09-15T06:00:00-04:00",
+    "actor": "weekly@moneytipsdaily.example",
+    "subject": "5 money moves for fall: insurance, refund season, and more",
+    "content": "This week in personal finance:\n\n- Why your renter's insurance premium may drop this quarter\n- Refund season is here: what retailers will and will not take back\n- Three index funds our readers are watching\n\nYou are receiving this because you subscribed to Money Tips Daily. Unsubscribe at any time.",
+    "attachments": [],
+    "metadata": {
+      "thread_id": "thread_gmail_promo_88",
+      "from": "weekly@moneytipsdaily.example",
+      "labels": ["CATEGORY_PROMOTIONS"],
+      "list_unsubscribe": "<mailto:unsubscribe@moneytipsdaily.example>"
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "ambiguous_insurance": {
+    "id": "evt_ambiguous_insurance_005",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_c31d09",
+    "timestamp": "2026-09-16T08:22:35-04:00",
+    "actor": "agent@brightpathinsurance.example",
+    "subject": "Updated insurance documents needed",
+    "content": "Hello Alex,\n\nWe need your updated insurance documents on file before the end of the month. Please reply to this email with the current declarations page attached.\n\nRegards,\nBrightPath Insurance",
+    "attachments": [],
+    "metadata": {
+      "thread_id": "thread_gmail_771",
+      "from": "agent@brightpathinsurance.example",
+      "labels": ["INBOX"]
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "new_obligation": {
+    "id": "evt_new_obligation_006",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_7a0e55",
+    "timestamp": "2026-09-16T14:05:12-04:00",
+    "actor": "compliance@northbridgebank.example",
+    "subject": "Action required: proof of address by September 30",
+    "content": "Dear Alex,\n\nAs part of a routine account review we require proof of address for account ending 4471. Please upload a utility bill or lease agreement dated within the last 90 days by September 30, 2026. Accounts without current documentation on file may be restricted.\n\nNorthbridge Bank Compliance",
+    "attachments": [],
+    "metadata": {
+      "thread_id": "thread_gmail_902",
+      "from": "compliance@northbridgebank.example",
+      "labels": ["INBOX", "IMPORTANT"]
+    },
+    "linked_loop_id": null,
+    "processed": false
+  },
+
+  "deadline_reached": {
+    "id": "evt_deadline_reached_007",
+    "source_app": "loopgraph",
+    "event_type": "DEADLINE_REACHED",
+    "external_id": null,
+    "timestamp": "2026-09-16T17:00:00-04:00",
+    "actor": null,
+    "subject": "Deadline reached: send the final deck to the client",
+    "content": "The deadline for node node_presentation_send has been reached and the node is still WAITING.",
+    "attachments": [],
+    "metadata": {
+      "node_id": "node_presentation_send",
+      "scheduled_for": "2026-09-16T17:00:00-04:00"
+    },
+    "linked_loop_id": "loop_presentation_001",
+    "processed": false
+  },
+
+  "completed_loop_refund": {
+    "id": "evt_completed_loop_refund_008",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "gmail_msg_4d8812",
+    "timestamp": "2026-09-16T10:41:58-04:00",
+    "actor": "support@oldshop.example",
+    "subject": "Refund confirmation for Order #Z9001",
+    "content": "Hi Alex,\n\nThis is a duplicate confirmation that your $45.00 refund for Order #Z9001 was issued. No further action is needed on your part.\n\nOldShop Support",
+    "attachments": [],
+    "metadata": {
+      "thread_id": "thread_gmail_119",
+      "from": "support@oldshop.example",
+      "labels": ["INBOX"]
+    },
+    "linked_loop_id": null,
+    "processed": false
+  }
+}

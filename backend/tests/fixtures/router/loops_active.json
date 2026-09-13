@@ -1,0 +1,252 @@
+{
+  "loops": [
+    {
+      "loop": {
+        "id": "loop_refund_001",
+        "user_id": "user_001",
+        "title": "Get the $129 refund for Order #A1298",
+        "goal": "Receive a confirmed $129.00 refund for Order #A1298 back on the original payment method.",
+        "status": "WAITING",
+        "updated_at": "2026-09-12T16:20:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_refund_requested",
+          "title": "Refund requested from merchant",
+          "status": "VERIFIED",
+          "owner": "Alex",
+          "metadata": {
+            "order_id": "A1298",
+            "amount": 129.0,
+            "currency": "USD",
+            "merchant": "Merchant Returns"
+          }
+        },
+        {
+          "id": "node_refund_confirmed",
+          "title": "Merchant confirms the refund was issued",
+          "status": "WAITING",
+          "owner": null,
+          "metadata": {
+            "order_id": "A1298",
+            "amount": 129.0,
+            "currency": "USD"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_refund_confirmation_email",
+          "node_id": "node_refund_confirmed",
+          "type": "EMAIL_CONFIRMATION",
+          "description": "An email from the merchant confirming a $129.00 refund for Order #A1298.",
+          "source_apps": ["gmail"],
+          "required_fields": {
+            "order_id": "A1298",
+            "amount": 129.0
+          }
+        }
+      ],
+      "thread_ids": ["thread_gmail_444"]
+    },
+
+    {
+      "loop": {
+        "id": "loop_presentation_001",
+        "user_id": "user_001",
+        "title": "Send the final client deck",
+        "goal": "Obtain the final version of the client presentation and send it to the client before the deadline.",
+        "status": "ACTIVE",
+        "updated_at": "2026-09-14T09:05:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_presentation_collect",
+          "title": "Get the final deck from Sarah",
+          "status": "WAITING",
+          "owner": "Sarah",
+          "metadata": {
+            "artifact": "Q4 client presentation",
+            "channel": "C07PROJECTS",
+            "document_type": "presentation",
+            "version": "draft"
+          }
+        },
+        {
+          "id": "node_presentation_send",
+          "title": "Send the final deck to the client",
+          "status": "WAITING",
+          "owner": null,
+          "metadata": {
+            "artifact": "Q4 client presentation"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_presentation_file",
+          "node_id": "node_presentation_collect",
+          "type": "DOCUMENT",
+          "description": "The final version of the Q4 client presentation, received from its current owner.",
+          "source_apps": ["slack", "drive"],
+          "required_fields": {
+            "document_type": "presentation",
+            "version": "final"
+          }
+        }
+      ],
+      "thread_ids": ["1690000123.111"]
+    },
+
+    {
+      "loop": {
+        "id": "loop_insurance_001",
+        "user_id": "user_001",
+        "title": "Renew renter's insurance policy RP-2025-8891",
+        "goal": "Submit updated documents and confirm renewal of renter's insurance policy RP-2025-8891.",
+        "status": "ACTIVE",
+        "updated_at": "2026-09-11T13:40:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_renters_docs",
+          "title": "Send updated documents to the renter's insurance agent",
+          "status": "WAITING",
+          "owner": "Alex",
+          "metadata": {
+            "policy_id": "RP-2025-8891",
+            "policy_type": "renters",
+            "carrier": "BrightPath Insurance"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_renters_docs",
+          "node_id": "node_renters_docs",
+          "type": "DOCUMENT",
+          "description": "Updated declarations page for renter's insurance policy RP-2025-8891.",
+          "source_apps": ["gmail", "drive"],
+          "required_fields": {
+            "policy_id": "RP-2025-8891"
+          }
+        }
+      ],
+      "thread_ids": ["thread_gmail_612"]
+    },
+
+    {
+      "loop": {
+        "id": "loop_insurance_002",
+        "user_id": "user_001",
+        "title": "Renew car insurance policy CA-2026-1120",
+        "goal": "Submit updated documents and confirm renewal of car insurance policy CA-2026-1120.",
+        "status": "ACTIVE",
+        "updated_at": "2026-09-11T13:52:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_car_docs",
+          "title": "Send updated documents to the car insurance agent",
+          "status": "WAITING",
+          "owner": "Alex",
+          "metadata": {
+            "policy_id": "CA-2026-1120",
+            "policy_type": "auto",
+            "carrier": "BrightPath Insurance"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_car_docs",
+          "node_id": "node_car_docs",
+          "type": "DOCUMENT",
+          "description": "Updated declarations page for car insurance policy CA-2026-1120.",
+          "source_apps": ["gmail", "drive"],
+          "required_fields": {
+            "policy_id": "CA-2026-1120"
+          }
+        }
+      ],
+      "thread_ids": ["thread_gmail_613"]
+    },
+
+    {
+      "loop": {
+        "id": "loop_old_refund_777",
+        "user_id": "user_001",
+        "title": "Get the $45 refund for Order #Z9001",
+        "goal": "Receive a confirmed $45.00 refund for Order #Z9001 back on the original payment method.",
+        "status": "COMPLETED",
+        "updated_at": "2026-09-08T15:10:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_old_refund_confirmed",
+          "title": "Merchant confirms the refund was issued",
+          "status": "VERIFIED",
+          "owner": "Alex",
+          "metadata": {
+            "order_id": "Z9001",
+            "amount": 45.0,
+            "currency": "USD",
+            "merchant": "OldShop"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_old_refund_confirmation_email",
+          "node_id": "node_old_refund_confirmed",
+          "type": "EMAIL_CONFIRMATION",
+          "description": "An email from the merchant confirming a $45.00 refund for Order #Z9001.",
+          "source_apps": ["gmail"],
+          "required_fields": {
+            "order_id": "Z9001",
+            "amount": 45.0
+          }
+        }
+      ],
+      "thread_ids": ["thread_gmail_119"]
+    },
+
+    {
+      "loop": {
+        "id": "loop_other_user_500",
+        "user_id": "user_999",
+        "title": "Get the refund for Order #A1298",
+        "goal": "Receive a confirmed refund for Order #A1298 back on the original payment method.",
+        "status": "ACTIVE",
+        "updated_at": "2026-09-13T11:00:00-04:00"
+      },
+      "nodes": [
+        {
+          "id": "node_other_user_refund",
+          "title": "Merchant confirms the refund was issued",
+          "status": "WAITING",
+          "owner": "Jordan",
+          "metadata": {
+            "order_id": "A1298",
+            "amount": 129.0,
+            "currency": "USD",
+            "merchant": "Merchant Returns"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "id": "req_other_user_refund_email",
+          "node_id": "node_other_user_refund",
+          "type": "EMAIL_CONFIRMATION",
+          "description": "An email from the merchant confirming the refund for Order #A1298.",
+          "source_apps": ["gmail"],
+          "required_fields": {
+            "order_id": "A1298"
+          }
+        }
+      ],
+      "thread_ids": ["thread_gmail_444"]
+    }
+  ]
+}
