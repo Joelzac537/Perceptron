@@ -20,23 +20,32 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.events import router as events_router
+from app.api.pipeline import router as pipeline_router
 from app.events import poller
-from app.events.sink import FORWARD_URL, load_seen, seen
+from app.events.sink import FORWARD_URL, load_seen, seen, set_handler
+from app.graph.runtime import runtime
 from app.integrations.composio import APPS, USER_ID, active_accounts
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     load_seen()
+    # Build the agents once, then hand every accepted Event straight to LangGraph.
+    await runtime.start()
+    set_handler(runtime.handle if runtime.ready else None)
+    print(f"reasoning pipeline: {'ON' if runtime.ready else 'OFF (no OPENAI_API_KEY)'}")
     print("watching:")
     tasks = poller.start()
     yield
     for task in tasks:
         task.cancel()
+    set_handler(None)
+    await runtime.stop()
 
 
 app = FastAPI(title="LoopGraph — Ingestion", lifespan=lifespan)
 app.include_router(events_router)
+app.include_router(pipeline_router)
 
 
 @app.get("/health")
@@ -46,6 +55,8 @@ async def health() -> dict:
         "user_id": USER_ID,
         "apps": list(APPS),
         "events_seen": len(seen),
+        "pipeline_ready": runtime.ready,
+        "loops_tracked": len(runtime.state.graphs),
         "forwarding_to": FORWARD_URL,
     }
 

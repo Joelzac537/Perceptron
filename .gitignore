@@ -48,3 +48,5 @@ node_modules/
 
 # Composio CLI project binding
 .composio/
+
+frontend/

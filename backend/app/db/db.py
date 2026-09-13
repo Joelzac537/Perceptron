@@ -386,6 +386,13 @@ async def get_loop_detail(loop_id: str) -> dict | None:
         source_events = await conn.fetch(
             "select event_id from loop_source_events where loop_id=$1", loop_id
         )
+        requirements = (
+            await conn.fetch(
+                "select * from evidence_requirements where node_id = any($1::text[])",
+                node_ids,
+            )
+            if node_ids else []
+        )
         compilation = await conn.fetchrow(
             "select * from compilations where loop_id=$1", loop_id
         )
@@ -393,6 +400,7 @@ async def get_loop_detail(loop_id: str) -> dict | None:
         "loop": dict(loop),
         "nodes": [dict(r) for r in nodes],
         "edges": [dict(r) for r in edges],
+        "requirements": [dict(r) for r in requirements],
         "evidence": [dict(r) for r in evidence],
         "actions": [dict(r) for r in actions],
         "approvals": [dict(r) for r in approvals],
@@ -415,6 +423,139 @@ async def get_pending_approvals() -> list[dict]:
 
 
 # --- smoke test ------------------------------------------------------------
+
+async def link_event_to_loop(event_id: str, loop_id: str) -> None:
+    """Set events.linked_loop_id once routing has resolved it.
+
+    The Event Router's cheapest signal reads this column back (it joins events on
+    linked_loop_id to find loops already touching a thread), so without this write the
+    column stays null forever and thread-based routing never matches anything.
+
+    Only ever called for an unambiguous single match: the column holds one id, so a
+    thread legitimately spanning two loops belongs in loop_source_events instead.
+    """
+    async with pool().acquire() as conn:
+        await conn.execute(
+            "update events set linked_loop_id=$2 where id=$1", event_id, loop_id
+        )
+
+
+async def save_evidence(event_id: str, decisions: list[dict]) -> list[str]:
+    """Persist one assessed Evidence row per verifier decision.
+
+    Every decision is stored, including UNRELATED and INSUFFICIENT: the assessment is
+    the audit record, not just the favourable half of it. `verified` marks that the
+    assessment happened and never that the node is complete -- completion gates are
+    enforced separately by the runtime.
+    """
+    if not decisions:
+        return []
+    ids: list[str] = []
+    async with pool().acquire() as conn, conn.transaction():
+        for d in decisions:
+            eid = d.get("id") or _gen("evidence")
+            await conn.execute(
+                """
+                insert into evidence
+                  (id, node_id, event_id, relationship, confidence, reason,
+                   extracted_fields, verified)
+                values ($1,$2,$3,$4,$5,$6,$7,$8)
+                on conflict (id) do nothing
+                """,
+                eid, d["node_id"], event_id, str(d["relationship"]),
+                float(d.get("confidence", 0.0)), d.get("reason", ""),
+                d.get("extracted_fields") or {}, bool(d.get("verified", True)),
+            )
+            ids.append(eid)
+    return ids
+
+
+async def log_activity(
+    loop_id: str, activity_type: str, message: str, metadata: dict | None = None
+) -> str:
+    """Append one activity entry. Powers the timeline the UI renders per loop."""
+    aid = _gen("activity")
+    async with pool().acquire() as conn:
+        await conn.execute(
+            """
+            insert into activity_logs (id, loop_id, activity_type, message, metadata)
+            values ($1,$2,$3,$4,$5)
+            """,
+            aid, loop_id, activity_type, message, metadata or {},
+        )
+    return aid
+
+
+async def event_exists(dedup_key: str) -> bool:
+    """True when an event carrying this dedup key has already been ingested.
+
+    Matches on metadata->>'dedup_key' rather than the (source_app, external_id) unique
+    index, because Event.dedup_key folds in the item's version stamp: an edited message
+    is new work, while a re-delivered webhook is not. The unique index alone cannot
+    express that distinction.
+    """
+    async with pool().acquire() as conn:
+        found = await conn.fetchval(
+            "select 1 from events where metadata->>'dedup_key' = $1 limit 1", dedup_key
+        )
+    return found is not None
+
+
+async def loop_thread_ids(loop_id: str) -> list[str]:
+    """Every conversation thread whose events are linked to this loop.
+
+    Gmail stores it as metadata.thread_id and Slack as metadata.thread_ts; both are
+    checked so neither app is privileged.
+    """
+    async with pool().acquire() as conn:
+        rows = await conn.fetch(
+            """
+            select distinct
+                   coalesce(metadata->>'thread_id', metadata->>'thread_ts') as thread_id
+            from events
+            where linked_loop_id = $1
+              and coalesce(metadata->>'thread_id', metadata->>'thread_ts') is not null
+            """,
+            loop_id,
+        )
+    return [r["thread_id"] for r in rows]
+
+
+async def find_loop_ids_by_thread(
+    user_id: str, thread_ids: list[str], statuses: list[str] | None = None
+) -> dict[str, list[str]]:
+    """Map each thread id to the still-open loops already linked to it.
+
+    Returns a LIST per thread, never a single id: one conversation can legitimately
+    belong to several loops, and collapsing that would silently drop a live candidate.
+
+    Terminal loops are filtered here rather than by the caller, so there is no path by
+    which a COMPLETED loop is reopened by a late message in its old thread. The tenant
+    filter is on loops.user_id because events has no user column.
+    """
+    if not thread_ids:
+        return {}
+    statuses = statuses or ["ACTIVE", "WAITING", "BLOCKED"]
+    async with pool().acquire() as conn:
+        rows = await conn.fetch(
+            """
+            select coalesce(e.metadata->>'thread_id', e.metadata->>'thread_ts') as thread_id,
+                   e.linked_loop_id
+            from events e
+            join loops l on l.id = e.linked_loop_id
+            where l.user_id = $1
+              and l.status = any($2::text[])
+              and e.linked_loop_id is not null
+              and coalesce(e.metadata->>'thread_id', e.metadata->>'thread_ts') = any($3::text[])
+            group by 1, 2
+            """,
+            user_id, statuses, thread_ids,
+        )
+    found: dict[str, list[str]] = {}
+    for row in rows:
+        found.setdefault(row["thread_id"], []).append(row["linked_loop_id"])
+    return found
+
 
 async def _smoke():
     await init_pool()

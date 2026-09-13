@@ -11,7 +11,7 @@ nothing else.
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.graph.schemas import Event, EventType
 
@@ -207,7 +207,7 @@ EXTRACTORS = {
 
 def _from_unix(value) -> datetime | None:
     try:
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return datetime.fromtimestamp(float(value), tz=UTC)
     except (TypeError, ValueError):
         return None
 
@@ -220,7 +220,7 @@ def _parse_timestamp(value) -> datetime:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             pass
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def normalize(toolkit: str, event_type: EventType, payload: dict, source: str) -> Event:
@@ -239,9 +239,19 @@ def normalize(toolkit: str, event_type: EventType, payload: dict, source: str) -
             "metadata": {"unmapped_toolkit": toolkit},
         }
 
+    # A deterministic id, not a fresh uuid per sighting. The same real-world item must
+    # keep the same Event.id every time it is polled, otherwise the row the database
+    # deduplicated to (on source_app + external_id) and the Event the pipeline is holding
+    # drift apart, and any later foreign key to that event fails. Derived from the same
+    # three parts as Event.dedup_key, so an edit still gets its own identity.
+    app_slug = (toolkit or "unknown").lower()
+    version = fields["metadata"].get("version") or ""
+    identity = f"{app_slug}:{fields['external_id'] or ''}:{version}"
+    stable_id = f"event_{hashlib.sha256(identity.encode()).hexdigest()[:12]}"
+
     return Event(
-        id=f"event_{uuid.uuid4().hex[:12]}",
-        source_app=(toolkit or "unknown").lower(),
+        id=stable_id if fields["external_id"] else f"event_{uuid.uuid4().hex[:12]}",
+        source_app=app_slug,
         event_type=event_type,
         external_id=fields["external_id"],
         timestamp=_parse_timestamp(fields.get("timestamp")),

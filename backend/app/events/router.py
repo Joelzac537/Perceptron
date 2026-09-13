@@ -238,10 +238,11 @@ class EventRouter:
         # --- STAGE 1: deterministic signals. Database reads, still no model. ----------
         summaries = await self._repo.list_routable_loops(self._user_id)
         by_id = {summary.loop_id: summary for summary in summaries}
-        if not by_id:
-            return validate_route_response(
-                RouteEventResponse(matches=[], create_new_loop_candidate=False), ()
-            )
+        # No early return when by_id is empty. Every Stage 1 signal below simply finds
+        # nothing to score, and Stage 2/3 still has to run: with zero tracked loops the
+        # match question is trivially "none", but the new-obligation question is the
+        # whole point. Returning here would make the first event of a user's life
+        # unable to create a loop, and therefore every event after it too.
 
         scores: dict[str, float] = {}
         reasons: dict[str, str] = {}

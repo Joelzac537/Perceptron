@@ -16,6 +16,10 @@ dependencies = [
     "httpx",
     # Windows ships no IANA tz database, so zoneinfo needs this for Settings.timezone.
     "tzdata",
+    "composio>=0.21.1",
+    "asyncpg>=0.31.0",
+    "node>=2.0.0",
+    "npm>=0.1.1",
 ]
 
 [project.optional-dependencies]
