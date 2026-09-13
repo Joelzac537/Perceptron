@@ -1,6 +1,7 @@
 """Tests for the Event Router's deterministic identifier layer."""
 
 import pytest
+from fixtures.router import load_event
 
 from app.events.identifiers import (
     DEFAULT_CURRENCY,
@@ -14,7 +15,6 @@ from app.events.identifiers import (
     extract_identifiers,
     token_match,
 )
-from tests.fixtures.router import load_event
 
 # --------------------------------------------------------------------------------------
 # extract_identifiers: order ids

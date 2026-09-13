@@ -12,9 +12,11 @@ Pure and synchronous: no I/O, no clock, no LLM.
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
-from app.constants import LoopStatus, NodeStatus
-from app.graph.schemas import ContractModel, JsonObject, NonEmpty
 from pydantic import AwareDatetime, Field
+
+from app.agents.provider_schemas import ProviderModel
+from app.constants import LoopStatus, NodeStatus
+from app.graph.schemas import Confidence, ContractModel, JsonObject, NonEmpty
 
 # A loop is only a routing candidate while it is still open for work. COMPLETED, FAILED
 # and CANCELLED loops are terminal: a late event must never reopen one. Anything not
@@ -106,6 +108,89 @@ class LoopSummary(ContractModel):
             "people": list(self.people),
             "identifiers": dict(self.identifiers),
         }
+
+
+# --------------------------------------------------------------------------------------
+# Semantic stage — domain result
+#
+# The model never fills the shared `RouteEventResponse`. It fills these, and `router.py`
+# converts in Python, so the wire contract owned by another teammate can never be shaped
+# by model output.
+# --------------------------------------------------------------------------------------
+
+
+class SemanticCandidate(ContractModel):
+    """One loop the model believes the event relates to."""
+
+    loop_id: NonEmpty
+    confidence: Confidence
+    reason: NonEmpty
+
+
+class SemanticRouteResult(ContractModel):
+    """The semantic stage's answer to both questions.
+
+    `is_new_obligation` is only meaningful when `candidates` is empty; an event that
+    belongs to an existing loop is not also a new obligation. The validator enforces that
+    rather than trusting the model to respect it.
+    """
+
+    candidates: list[SemanticCandidate] = Field(default_factory=list)
+    is_new_obligation: bool = False
+    obligation_reason: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Semantic stage — provider DTOs
+#
+# `assert_closed_schema` rejects any field default and requires every property, so nothing
+# below may have a default and optionality is an explicit `| None` the model must emit as
+# null. These exist only to be parsed out of a model response and mapped across.
+# --------------------------------------------------------------------------------------
+
+
+class RouteCandidateDraft(ProviderModel):
+    loop_id: NonEmpty
+    confidence: Confidence
+    reason: NonEmpty
+
+
+class RouteDraft(ProviderModel):
+    candidates: list[RouteCandidateDraft]
+    is_new_obligation: bool
+    obligation_reason: str | None
+
+
+def map_route_draft(draft: RouteDraft) -> SemanticRouteResult:
+    """Convert provider output into the domain result.
+
+    Raises `ValueError` on a self-contradictory draft, which the reasoning boundary treats
+    as a validation failure and feeds back for one repair attempt.
+    """
+    if draft.is_new_obligation and draft.candidates:
+        raise ValueError(
+            "is_new_obligation cannot be true when candidates were returned: "
+            "an event that belongs to an existing loop is not a new obligation"
+        )
+    if draft.is_new_obligation and not (draft.obligation_reason or "").strip():
+        raise ValueError("is_new_obligation requires a nonblank obligation_reason")
+
+    loop_ids = [candidate.loop_id for candidate in draft.candidates]
+    if len(loop_ids) != len(set(loop_ids)):
+        raise ValueError("A loop may appear at most once in candidates")
+
+    return SemanticRouteResult(
+        candidates=[
+            SemanticCandidate(
+                loop_id=candidate.loop_id,
+                confidence=candidate.confidence,
+                reason=candidate.reason,
+            )
+            for candidate in draft.candidates
+        ],
+        is_new_obligation=draft.is_new_obligation,
+        obligation_reason=draft.obligation_reason,
+    )
 
 
 def _identity_subset(fields: Mapping[str, Any] | None) -> dict[str, Any]:

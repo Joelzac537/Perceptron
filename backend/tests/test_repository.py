@@ -1,6 +1,7 @@
 """Tests for the Event Router's read layer and its loop summaries."""
 
 import pytest
+from fixtures.router import load_loop_rows
 
 from app.constants import LoopStatus
 from app.events.repository import (
@@ -15,7 +16,6 @@ from app.events.router_models import (
     TOKEN_IDENTITY_FIELDS,
     build_loop_summary,
 )
-from tests.fixtures.router import load_loop_rows
 
 OWNING_USER = "user_001"
 OTHER_USER = "user_999"

@@ -6,14 +6,20 @@ says "this event is about that loop", not "this event satisfies it". The Evidenc
 makes the second call.
 
 Staged deliberately cheapest-first. Stage 0 touches nothing, Stage 1 is one or two indexed
-reads plus regex. The semantic stage that consults a model lands in a later task; until
-then an event that survives Stage 1 unmatched returns no matches rather than guessing.
+reads plus regex, and only an event that survives both without a confident answer reaches
+Stage 2, which consults a model. Stage 3 asks that same model whether an unmatched event
+is a new obligation — one call answers both questions.
 """
 
-from collections.abc import Callable
+import logging
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Any, Final
 
+from pydantic import BaseModel
+
+from app.agents.llm import LLMError, Prompt, ReasoningBoundary
+from app.config import Settings
 from app.events.identifiers import (
     KEY_AMOUNT,
     amount_match,
@@ -21,9 +27,22 @@ from app.events.identifiers import (
     token_match,
 )
 from app.events.repository import LoopRepository
-from app.events.router_models import TOKEN_IDENTITY_FIELDS, LoopSummary
+from app.events.router_models import (
+    TOKEN_IDENTITY_FIELDS,
+    LoopSummary,
+    RouteDraft,
+    SemanticRouteResult,
+    map_route_draft,
+)
 from app.events.router_validation import validate_route_response
 from app.graph.schemas import Event, LoopMatch, RouteEventRequest, RouteEventResponse
+from app.prompts.router import ROUTER_VERSION, router_prompt
+
+# The repo's convention is to return diagnostics on LLMError rather than log them. The
+# router is the one place that swallows the error instead of raising, so the failure would
+# otherwise vanish silently. Only the code and per-attempt outcomes are ever emitted —
+# never the envelope, request body, or settings, per the LLMError contract.
+logger = logging.getLogger(__name__)
 
 # --- Confidence policy ----------------------------------------------------------------
 # Below this a candidate is discarded outright rather than passed on as a weak guess.
@@ -59,6 +78,16 @@ CONFIDENCE_PRECISION: Final = 4
 # Binary floating point makes 0.99 - 0.84 slightly larger than 0.15, which would drop a
 # candidate that is exactly on the ambiguity boundary. Compare with a tolerance.
 FLOAT_TOLERANCE: Final = 1e-9
+
+# --- Semantic stage -------------------------------------------------------------------
+# A prompt listing every open loop would grow without bound and bury the real candidate in
+# noise. Ten most-recently-updated loops is the cap; beyond that, recency is the best
+# available proxy for relevance.
+SEMANTIC_CANDIDATE_CAP: Final = 10
+# The 60s Settings default is sized for the compiler, which builds a whole graph. Routing
+# is one short judgement sitting on the critical path of every ingested event, so a stalled
+# model must not stall ingestion.
+ROUTER_TIMEOUT_SECONDS: Final = 15.0
 
 # --- Where thread ids live in event metadata ------------------------------------------
 # Gmail calls it thread_id, Slack calls it thread_ts. Both are checked; neither is assumed.
@@ -102,6 +131,55 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+class EventSummary(BaseModel):
+    """The event as the model sees it.
+
+    A projection rather than the whole `Event`: ids, `processed`, and `linked_loop_id`
+    are routing bookkeeping that would only invite the model to reason about them.
+    """
+
+    source_app: str
+    event_type: str
+    timestamp: str
+    actor: str | None
+    subject: str | None
+    content: str | None
+    attachment_count: int
+
+
+class SemanticRouteInput(BaseModel):
+    """The single request model handed to `ReasoningBoundary.run`.
+
+    `run` takes exactly one `BaseModel`, so the event and its candidates are folded
+    together here — the same shape `RepairInput` uses for the replanner.
+    """
+
+    event: EventSummary
+    candidates: list[dict[str, Any]]
+
+
+def _summarize_event(event: Event) -> EventSummary:
+    return EventSummary(
+        source_app=event.source_app,
+        event_type=event.event_type,
+        timestamp=event.timestamp.isoformat(),
+        actor=event.actor,
+        subject=event.subject,
+        content=event.content,
+        attachment_count=len(event.attachments),
+    )
+
+
+def _prompt_candidates(summaries: Sequence[LoopSummary]) -> list[dict[str, Any]]:
+    """The most recently updated loops, capped, as prompt views.
+
+    `prompt_view()` already withholds thread ids: they are deterministic join keys that
+    Stage 1 has finished with, and opaque strings in a prompt invite invented matches.
+    """
+    ordered = sorted(summaries, key=lambda summary: summary.updated_at, reverse=True)
+    return [summary.prompt_view() for summary in ordered[:SEMANTIC_CANDIDATE_CAP]]
+
+
 class EventRouter:
     """Routes one event to the loops it affects.
 
@@ -112,9 +190,13 @@ class EventRouter:
     event to another person's loop. Making it explicit here keeps the gap visible until the
     contract is amended.
 
-    `now_fn` is held rather than called for now — Stage 0 and Stage 1 are time-independent.
-    The semantic stage will use it for recency weighting, and taking it as an injected
-    callable now means no logic in this module ever reaches for the wall clock itself.
+    `llm` is a `StructuredProvider` whose lifecycle the caller owns and closes, matching
+    the convention every agent handoff doc states. `now_fn` becomes the reasoning
+    boundary's clock, so `reference_time` and `timezone` reach the model through the
+    trusted envelope and nothing in this module ever reads the wall clock itself.
+
+    `settings` is optional and only shapes the model call; the timeout is overridden to
+    `ROUTER_TIMEOUT_SECONDS` regardless of what is passed in.
     """
 
     def __init__(
@@ -123,11 +205,16 @@ class EventRouter:
         llm: Any,
         user_id: str,
         now_fn: Callable[[], datetime],
+        settings: Settings | None = None,
     ) -> None:
         self._repo = repo
         self._llm = llm
         self._user_id = user_id
         self._now_fn = now_fn
+        # Settings is frozen, so derive rather than mutate.
+        self._settings = (settings or Settings()).model_copy(
+            update={"timeout_seconds": ROUTER_TIMEOUT_SECONDS}
+        )
 
     async def route(self, request: RouteEventRequest) -> RouteEventResponse:
         event = request.event
@@ -250,8 +337,71 @@ class EventRouter:
         if short_circuited:
             return self._respond(short_circuited, scores, reasons, by_id)
 
+        # --- STAGE 2/3: semantic judgement. One model call answers both questions. -----
+        semantic = await self._ask_model(event, list(by_id.values()))
+        if semantic is None:
+            # The model failed twice. A routing failure returns nothing; it must never
+            # invent a loop, propose a new one, or raise into the caller.
+            return validate_route_response(
+                RouteEventResponse(matches=[], create_new_loop_candidate=False), by_id.keys()
+            )
+
+        for candidate in semantic.candidates:
+            # Filter to the candidate set: a model naming a loop it was not offered is a
+            # hallucination, not a match.
+            if candidate.loop_id not in by_id:
+                continue
+            # Merge rather than replace, so a weak deterministic signal is not discarded
+            # when the model independently agrees about the same loop.
+            record(candidate.loop_id, candidate.confidence, candidate.reason)
+
+        scores = {
+            loop_id: round(score, CONFIDENCE_PRECISION) for loop_id, score in scores.items()
+        }
         kept = self._apply_confidence_policy(scores)
-        return self._respond(kept, scores, reasons, by_id)
+        return self._respond(
+            kept,
+            scores,
+            reasons,
+            by_id,
+            new_loop_candidate=semantic.is_new_obligation,
+        )
+
+    async def _ask_model(
+        self, event: Event, summaries: Sequence[LoopSummary]
+    ) -> SemanticRouteResult | None:
+        """Run the semantic stage, or return None if the model could not be trusted.
+
+        `ReasoningBoundary` already implements the validate-then-repair-once contract: a
+        first invalid result is fed back as `validation_feedback` and retried, and a second
+        raises `LLMError("LLM_OUTPUT_INVALID")`. Reimplementing that here would duplicate
+        it and drift from the rest of the agents layer.
+        """
+        boundary = ReasoningBoundary(
+            provider=self._llm, settings=self._settings, clock=self._now_fn
+        )
+        request = SemanticRouteInput(
+            event=_summarize_event(event), candidates=_prompt_candidates(summaries)
+        )
+        try:
+            result = await boundary.run(
+                task="route",
+                prompt=Prompt(ROUTER_VERSION, router_prompt()),
+                request=request,
+                output_type=RouteDraft,
+                convert=lambda draft, _context: map_route_draft(draft),
+                # map_route_draft already raises ValueError on a contradictory draft, and
+                # the boundary treats that as the validation failure worth repairing.
+                validate=lambda result: result,
+            )
+        except LLMError as exc:
+            logger.warning(
+                "Event router semantic stage failed: %s (attempts: %s)",
+                exc.code,
+                [attempt.outcome for attempt in exc.attempts],
+            )
+            return None
+        return result.value
 
     @staticmethod
     def _apply_confidence_policy(scores: dict[str, float]) -> list[str]:
@@ -283,6 +433,8 @@ class EventRouter:
         scores: dict[str, float],
         reasons: dict[str, str],
         by_id: dict[str, LoopSummary],
+        *,
+        new_loop_candidate: bool = False,
     ) -> RouteEventResponse:
         """Order, build and validate the response.
 
@@ -301,7 +453,7 @@ class EventRouter:
                 for loop_id in ordered
             ],
             # An event that belongs to an existing loop is never also a new obligation.
-            # The empty-matches case stays False until the semantic stage lands.
-            create_new_loop_candidate=False,
+            # Enforced here rather than trusted from the model, and again in validation.
+            create_new_loop_candidate=new_loop_candidate and not ordered,
         )
         return validate_route_response(response, by_id.keys())

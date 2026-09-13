@@ -1,3 +1,4 @@
+.gitignore
 .venv/
 __pycache__/
 *.py[cod]
@@ -15,7 +16,6 @@ build/
 .schema-review/
 node_modules/
 .next/
-pyproject.toml
-.python-version
+# pyproject.toml
+# .python-version
 uv.lock
-

@@ -26,8 +26,11 @@ from app.agents.provider_schemas import ProviderModel, assert_closed_schema
 from app.config import Settings
 from app.prompts import BOUNDARY_VERSION, boundary_prompt
 
-Task = Literal["compile", "verify", "replan"]
-EFFORT = {"compile": "medium", "verify": "low", "replan": "medium"}
+# "route" added for the Event Router's semantic stage (app/events/router.py). Low effort:
+# routing is a short relevance judgement over pre-filtered candidates, not graph reasoning,
+# and it sits on the critical path of every ingested event.
+Task = Literal["compile", "verify", "replan", "route"]
+EFFORT = {"compile": "medium", "verify": "low", "replan": "medium", "route": "low"}
 
 
 @dataclass(frozen=True)

@@ -125,13 +125,24 @@ class UnavailableLLM:
     """A model client that refuses to be called.
 
     Inject this wherever a test asserts a deterministic path completed without consulting
-    a model. `complete` is a plain method rather than `async def` on purpose: it raises the
-    moment it is called, so an unawaited `llm.complete(...)` still fails loudly instead of
-    leaving a dangling coroutine and a passing test.
+    a model. Both methods are plain `def` rather than `async def` on purpose: they raise
+    the moment they are called, so an unawaited call still fails loudly instead of leaving
+    a dangling coroutine and a passing test.
+
+    `generate` is the `StructuredProvider` surface that `ReasoningBoundary` actually
+    invokes; `complete` covers a plainer client shape. Guarding only one would let the
+    other fail with an obscure AttributeError instead of a clear assertion.
     """
 
+    def generate(self, *args: Any, **kwargs: Any) -> Any:
+        raise AssertionError(self._message("generate", args, kwargs))
+
     def complete(self, *args: Any, **kwargs: Any) -> Any:
-        raise AssertionError(
-            "The LLM was called on a path that must stay deterministic. "
+        raise AssertionError(self._message("complete", args, kwargs))
+
+    @staticmethod
+    def _message(method: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+        return (
+            f"The LLM was called via {method}() on a path that must stay deterministic. "
             f"args={args!r} kwargs={kwargs!r}"
         )

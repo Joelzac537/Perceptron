@@ -61,7 +61,10 @@ def validate_route_response(
         )
 
     confidences = [match.confidence for match in response.matches]
-    for position, (earlier, later) in enumerate(zip(confidences, confidences[1:])):
+    # strict=False is correct here: the offset slice is one shorter by construction, so
+    # pairing adjacent elements is exactly what the uneven lengths are for.
+    adjacent = zip(confidences, confidences[1:], strict=False)
+    for position, (earlier, later) in enumerate(adjacent):
         check(
             earlier >= later,
             f"matches are not sorted by confidence descending: "
