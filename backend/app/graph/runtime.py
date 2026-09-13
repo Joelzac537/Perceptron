@@ -186,6 +186,11 @@ class LiveRuntime:
         self._workflow: EventWorkflow | None = None
         self._pool_open = False
         self.persisting = False
+        # The read side the API must use. Set in start() to whichever backend the
+        # workflow itself got, so an endpoint can never report a different world from
+        # the one the pipeline is writing into.
+        self.repo: Any = LiveLoopRepository(self.state)
+        self.graphs: Any = LiveLoopGraphSource(self.state)
         # One event at a time: the in-memory state has no transactions, and a demo does
         # not need concurrency badly enough to risk interleaved writes.
         self._lock = asyncio.Lock()
@@ -220,6 +225,7 @@ class LiveRuntime:
                 PostgresRuntimeStore(),
             )
         self.persisting = PERSIST
+        self.repo, self.graphs = repo, graphs
 
         self._provider = OpenAIProvider(self.settings)
         boundary = ReasoningBoundary(self._provider, self.settings)

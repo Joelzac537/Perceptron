@@ -7,7 +7,7 @@
 
 from fastapi import APIRouter
 
-from app.graph.runtime import USER_ID, LiveLoopRepository, runtime
+from app.graph.runtime import USER_ID, runtime
 
 router = APIRouter()
 
@@ -21,11 +21,13 @@ async def pipeline(limit: int = 20) -> dict:
 
 @router.get("/loops")
 async def loops() -> dict:
-    # Built from the same LiveState the router reads, so this endpoint shows exactly
-    # the candidate set routing will consider - not a parallel view that can drift.
-    summaries = await LiveLoopRepository(runtime.state).list_routable_loops(USER_ID)
+    # Read through runtime.repo, the very object the router uses. Querying LiveState
+    # directly would show an empty list whenever persistence is on, because the pipeline
+    # would be writing to Postgres while this endpoint read memory.
+    summaries = await runtime.repo.list_routable_loops(USER_ID)
     return {
-        "count": len(runtime.state.graphs),
+        "count": len(summaries),
+        "persisted": runtime.persisting,
         "routable": [
             {
                 "loop_id": s.loop_id,
@@ -44,7 +46,7 @@ async def loops() -> dict:
 
 @router.get("/loops/{loop_id}")
 async def loop_detail(loop_id: str) -> dict:
-    rows = runtime.state.graphs.get(loop_id)
+    rows = await runtime.graphs.load_loop_graph(USER_ID, loop_id)
     if rows is None:
         return {"found": False, "loop_id": loop_id}
     return {"found": True, **rows}

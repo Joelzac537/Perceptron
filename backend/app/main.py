@@ -18,6 +18,7 @@ be mounted here as they land.
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.events import router as events_router
 from app.api.pipeline import router as pipeline_router
@@ -44,6 +45,16 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="LoopGraph — Ingestion", lifespan=lifespan)
+
+# The dashboard runs on the Vite dev server, a different origin, so the browser
+# preflights every call. Localhost only: this is a demo surface, not a public API,
+# and a wildcard would let any page a teammate opens read their loops.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 app.include_router(events_router)
 app.include_router(pipeline_router)
 
@@ -56,7 +67,7 @@ async def health() -> dict:
         "apps": list(APPS),
         "events_seen": len(seen),
         "pipeline_ready": runtime.ready,
-        "loops_tracked": len(runtime.state.graphs),
+        "persisting": runtime.persisting,
         "forwarding_to": FORWARD_URL,
     }
 
