@@ -2,7 +2,7 @@
 
 JSON maps are represented as key/value entries. Recursive tagged values preserve
 nested arrays/objects without open additionalProperties or JSON encoded as prose.
-Graph-operation payload semantics are validated by the future A5 repair boundary.
+Graph-operation payload semantics are validated by the A5 repair boundary.
 """
 
 from typing import Literal, Self

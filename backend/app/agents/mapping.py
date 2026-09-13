@@ -214,9 +214,10 @@ def map_verify(draft: VerifyDraft, known_node_ids: set[str]) -> VerifyEventRespo
 def map_replan(
     draft: ReplanDraft, loop_id: str, node_ids: dict[str, str], context: MappingContext
 ) -> ReplanResponse:
-    """Shape conversion only. A5 must validate full state and operation payloads.
+    """Legacy A2 shape conversion only, not the A5 service's repair pipeline.
 
-    node_ids must be supplied by the repair validator, including validated additions.
+    A5 uses graph.repair_validation.map_repair to normalize and simulate full repairs.
+    Here node_ids must include validated additions supplied by the caller.
     This function must never be used as authorization to apply operations.
     """
     return ReplanResponse(
