@@ -18,4 +18,5 @@ node_modules/
 pyproject.toml
 .python-version
 uv.lock
+.gitignore
 
