@@ -48,5 +48,5 @@ node_modules/
 
 # Composio CLI project binding
 .composio/
-
-frontend/
+.claude/
+calude.md
