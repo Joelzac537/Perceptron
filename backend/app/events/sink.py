@@ -1,0 +1,67 @@
+"""Where normalized Events go.
+
+Deduplicates, records, and forwards. This is the handoff point: swap
+FORWARD_URL for a direct call into the LangGraph runtime once that exists.
+"""
+
+import json
+import os
+from collections import deque
+
+from app.graph.schemas import Event
+from app.integrations.composio import DATA
+
+EVENT_LOG = DATA / "events.jsonl"
+SEEN_PATH = DATA / "seen_ids.json"
+
+FORWARD_URL = os.getenv("LOOPGRAPH_WEBHOOK_URL")
+
+# Last 200 Events, so the next stage can pull recent history over HTTP.
+recent: deque[Event] = deque(maxlen=200)
+
+# Dedup across every ingestion path, not just Gmail.
+seen: set[str] = set()
+
+
+def load_seen() -> None:
+    if SEEN_PATH.exists():
+        try:
+            seen.update(json.loads(SEEN_PATH.read_text()))
+        except Exception:
+            pass
+
+
+def save_seen() -> None:
+    SEEN_PATH.write_text(json.dumps(sorted(seen)[-1000:]))
+
+
+def mark_seen(event: Event) -> None:
+    """Record without emitting. Used to baseline an existing inbox."""
+    seen.add(event.dedup_key)
+
+
+async def emit(event: Event) -> bool:
+    """Record an Event and pass it on. False means duplicate, already handled."""
+    if event.dedup_key in seen:
+        return False
+    seen.add(event.dedup_key)
+
+    recent.append(event)
+    payload = event.model_dump(mode="json")
+
+    with EVENT_LOG.open("a") as handle:
+        handle.write(json.dumps(payload) + "\n")
+    save_seen()
+
+    print(f"[{event.source_app}] {event.event_type.value} :: {event.subject}")
+
+    if FORWARD_URL:
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10) as http:
+                await http.post(FORWARD_URL, json=payload)
+        except Exception as exc:
+            print(f"  forward failed: {exc}")
+
+    return True

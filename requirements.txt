@@ -1,0 +1,13 @@
+# Composio SDK + env loading
+composio
+python-dotenv
+
+# Ingestion service
+fastapi
+uvicorn[standard]
+httpx
+
+# Once everything works, pin what actually worked -- the Composio SDK
+# changes shape between versions:
+#   pip freeze | grep -Ei 'composio|fastapi|uvicorn|dotenv'
+pydantic
