@@ -1,12 +1,12 @@
 """LoopGraph backend — ingestion layer.
 
-    cd backend && uvicorn app.main:app --reload --port 8000
+    ./run-server.sh
 
 Owns everything up to the normalized Event:
 
     Gmail / Slack / Drive / Calendar
         -> Composio
-        -> FastAPI            (this file + api/webhooks.py)
+        -> FastAPI            (this file + api/events.py)
         -> Event Normalizer   (events/normalizer.py)
         -> Event              (graph/schemas.py)
 
@@ -15,13 +15,12 @@ UI all sit downstream and are not this layer's concern. Routers for those can
 be mounted here as they land.
 """
 
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.webhooks import router as webhooks_router
-from app.events import gmail_poller
+from app.api.events import router as events_router
+from app.events import poller
 from app.events.sink import FORWARD_URL, load_seen, seen
 from app.integrations.composio import APPS, USER_ID, active_accounts
 
@@ -29,14 +28,15 @@ from app.integrations.composio import APPS, USER_ID, active_accounts
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     load_seen()
-    task = asyncio.create_task(gmail_poller.run())
-    print(f"gmail poller running every {gmail_poller.POLL_SECONDS:g}s")
+    print("watching:")
+    tasks = poller.start()
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="LoopGraph — Ingestion", lifespan=lifespan)
-app.include_router(webhooks_router)
+app.include_router(events_router)
 
 
 @app.get("/health")

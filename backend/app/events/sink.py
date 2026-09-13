@@ -53,7 +53,11 @@ async def emit(event: Event) -> bool:
         handle.write(json.dumps(payload) + "\n")
     save_seen()
 
-    print(f"[{event.source_app}] {event.event_type.value} :: {event.subject}")
+    # Slack and Drive have no subject -- fall back to the body, or the log
+    # line just reads "None" for every message that arrives.
+    summary = event.subject or " ".join(str(event.content or "").split())[:70] or "(empty)"
+    who = f" <{event.actor}>" if event.actor else ""
+    print(f"[{event.source_app}] {event.event_type.value}{who} :: {summary}")
 
     if FORWARD_URL:
         try:

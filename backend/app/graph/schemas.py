@@ -21,8 +21,17 @@ class EventType(str, Enum):
 
     MESSAGE_RECEIVED = "MESSAGE_RECEIVED"
     MESSAGE_SENT = "MESSAGE_SENT"
+    # Added alongside DOCUMENT_DELETED below. Doc 03 §4.4 covers a message
+    # arriving but not one being changed afterwards, and a loop can hinge on
+    # exactly that -- "they edited the deadline out of their reply".
+    MESSAGE_UPDATED = "MESSAGE_UPDATED"
+    MESSAGE_DELETED = "MESSAGE_DELETED"
     DOCUMENT_CREATED = "DOCUMENT_CREATED"
     DOCUMENT_UPDATED = "DOCUMENT_UPDATED"
+    # Added to the doc 03 §4.4 list, which has CALENDAR_EVENT_DELETED but no
+    # document equivalent. Drive reports deletions explicitly and a loop can
+    # hinge on one ("the signed contract is gone"), so it needs a type.
+    DOCUMENT_DELETED = "DOCUMENT_DELETED"
     DOCUMENT_FOUND = "DOCUMENT_FOUND"
     CALENDAR_EVENT_CREATED = "CALENDAR_EVENT_CREATED"
     CALENDAR_EVENT_UPDATED = "CALENDAR_EVENT_UPDATED"
@@ -65,9 +74,16 @@ class Event(BaseModel):
 
     @property
     def dedup_key(self) -> str:
-        """Identity for deduplication: source_app + external_id.
+        """Identity for deduplication: source_app + external_id + version.
 
-        Webhooks can be delivered more than once and the Gmail poller sees the
-        same message every pass. One real-world event, one Event.
+        Webhooks can be delivered more than once and the pollers see the same
+        item every pass. One real-world event, one Event.
+
+        The version matters: without it, editing or deleting a calendar event
+        produces the same key as its creation and gets silently dropped as a
+        duplicate. metadata["version"] holds the item's own change stamp
+        (Google's `updated`, Slack's `edited.ts`), so a change to an item we
+        have already seen counts as a new event.
         """
-        return f"{self.source_app}:{self.external_id or self.id}"
+        version = self.metadata.get("version") or ""
+        return f"{self.source_app}:{self.external_id or self.id}:{version}"
