@@ -1,0 +1,83 @@
+# LoopGraph — Database Layer (`db` branch)
+
+This branch contains the shared database layer: the schema and the persistence code
+everyone else builds on. **Nobody writes SQL except `db.py`** — agents produce
+structured objects and call these functions.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `supabase/schema.sql` | The full Postgres schema — 11 tables, all constraints, RLS, realtime. Source of truth for table shapes. |
+| `backend/app/db/db.py` | The asyncpg persistence layer. Import and call these functions; don't write raw SQL elsewhere. |
+
+## Setup (local)
+
+1. Install Python deps: `py -m pip install asyncpg python-dotenv`
+2. Create a `.env` (it's gitignored — never commit it) with **your own** local Postgres creds:
+   ```
+   PGHOST=localhost
+   PGPORT=5432
+   PGUSER=postgres
+   PGPASSWORD=your_local_password
+   PGDATABASE=Perceptron_db
+   ```
+3. Create a database and load the schema **once**, on a clean DB, via pgAdmin or psql:
+   run all of `supabase/schema.sql`.
+4. Verify: `py backend/app/db/db.py` — the built-in smoke test should end with `db.py OK.`
+
+> Your `.env`/password is personal and local. It is not shared and not in git.
+> Each teammate uses their own. A shared hosted DB (Supabase) is a later step (see below).
+
+## What `db.py` gives you
+
+Call these instead of writing SQL:
+
+- `insert_event(event)` → `(event, created)` — dedup-aware; returns existing row on duplicate.
+- `persist_compiled_graph(loop, nodes, edges, evidence_requirements, actions, source_event_ids)`
+  — saves a whole compiled graph in ONE transaction. Returns the loop id.
+- `create_action(action)` → `(action, created)` — idempotency-guarded.
+- `update_action_status(action_id, status, external_id, error)`
+- `apply_graph_operations(loop_id, operations)` — applies replanner ops atomically (the repair path).
+- `get_loop_detail(loop_id)` — everything for one loop (powers `GET /api/loops/{id}`).
+- `list_loops()`, `get_pending_approvals()`, `mark_event_processed(event_id)`
+
+## Two rules to use this layer correctly
+
+1. **Graph inserts must be transactional.** `persist_compiled_graph` does this with asyncpg.
+   Do NOT persist a graph via separate Supabase REST calls — the composite FKs will reject
+   it (the loop's root references a node created in the same transaction).
+2. **`insert_event` before `persist_compiled_graph`.** Any event id you pass in
+   `source_event_ids` must already exist in the `events` table, or the FK rejects it.
+   Flow: event arrives → `insert_event` → build graph → `persist_compiled_graph(..., source_event_ids=[id])`.
+
+## What the schema enforces (so you don't have to)
+
+- Duplicate webhook can't create a second event (`source_app` + `external_id` unique).
+- Same action can't be inserted twice (`idempotency_key` unique).
+- A loop's root must be a node in the same loop; edges/actions/approvals can't cross loops.
+- Comms sends (email/Slack) + Calendar update/cancel must be MEDIUM risk + require approval.
+- `source_apps` can't be empty; JSON columns must be the right shape; enums are checked.
+
+## Done
+
+- [x] Schema: 11 tables, enums, indexes, triggers.
+- [x] All reviewer constraints applied and tested firing (cross-loop, root, risk, dedup, etc.).
+- [x] `db.py` persistence layer — verified end-to-end against a real DB.
+- [x] Realtime publication + read-only RLS in the schema.
+
+## Left to do / team decisions (NOT blocking the schema)
+
+- [ ] **Merge `db` → `main`** via pull request so agents build on it.
+- [ ] **Pydantic DTO shaping** (agent builders' code): `db.py` returns raw dict rows.
+      Deriving `depends_on` from edges and excluding `events.created_at` from the strict
+      Event DTO happens in the Pydantic layer, not here.
+- [ ] **Shared database for the demo.** Local Postgres can't be the shared DB — for the
+      demo we need one hosted Postgres (Supabase) everyone + the demo machine connect to.
+      Same schema, same `db.py`; only the `.env` connection string changes. One person owns
+      the Supabase project; stand it up a few hours before the demo, not at the last minute.
+- [ ] **RLS scoping decision.** RLS is currently demo-grade (`using (true)` = any reader
+      sees all rows). Owner-scoped policies need a decision on real Supabase Auth UUIDs vs
+      demo ids. No `auth.users` FK was added.
+- [ ] **Risk CHECK is hardcoded** to the current comms action types. If a new send-type
+      action is added, update the `chk_comms_risk` constraint or its inserts will be rejected.
