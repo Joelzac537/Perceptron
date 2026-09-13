@@ -1,0 +1,20 @@
+{
+  "user_id": "user_001",
+  "user_goal": "Receive the $129.00 refund for Order #A1298.",
+  "source_event": {
+    "id": "event_refund_initial",
+    "source_app": "gmail",
+    "event_type": "MESSAGE_RECEIVED",
+    "external_id": "refund_message_001",
+    "timestamp": "2026-09-13T09:35:00-04:00",
+    "actor": "returns@merchant.example",
+    "subject": "Receive the $129.00 refund for Order #A1298.",
+    "content": "Your return for Order #A1298 is approved. Return the Sony headphones by September 16, 2026. The return label is attached. Your $129.00 USD refund will be processed within five business days after receipt."
+  },
+  "available_apps": [
+    "gmail",
+    "slack",
+    "google_drive",
+    "google_calendar"
+  ]
+}
