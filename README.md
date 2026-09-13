@@ -11,7 +11,7 @@ LoopGraph watches those four apps, turns each unfinished objective into an
 **outcome graph**, routes every incoming event to the goals it affects, verifies
 whether the event is real evidence, and repairs the plan when circumstances change.
 
-**Demo link**: ![https://drive.google.com/file/d/1ozH2MA0AkYqQu81wJ5dEgfVChOLgLDgt/view?usp=sharing]
+**Demo link**: ![https://drive.google.com/file/d/1wWfdi2hOnweMlXci3PlG9OzkgDvlOGrD/view?usp=sharing]
 
 ---
 
