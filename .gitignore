@@ -15,3 +15,7 @@ build/
 .schema-review/
 node_modules/
 .next/
+pyproject.toml
+.python-version
+uv.lock
+.gitignore
