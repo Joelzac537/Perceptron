@@ -19,3 +19,32 @@ node_modules/
 # pyproject.toml
 # .python-version
 uv.lock
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+
+# Captured events and watcher state — contains real message bodies
+backend/app/data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+perceptron_env/
+*_env/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+
+# OS
+.DS_Store
+
+# Composio CLI project binding
+.composio/
